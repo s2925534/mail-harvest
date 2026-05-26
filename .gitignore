@@ -1,6 +1,16 @@
-.venv/
 .env
+*.env
+output/
+output/**
+config/google_taxonomy.en-US.txt
 __pycache__/
 *.pyc
+.DS_Store
+.vscode/
+.idea/
+LCS*
+.venv/
 downloads/
 logs/
+.idea/*
+.idea
