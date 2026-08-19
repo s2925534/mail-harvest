@@ -52,6 +52,19 @@ class ImapClient(AbstractContextManager):
                 return item[1]
         raise RuntimeError(f"No message payload returned for email id {message_id!r}")
 
+    def fetch_headers(self, message_id: bytes) -> bytes:
+        # BODY.PEEK[HEADER] fetches only the RFC822 headers (no body / attachment)
+        # and does not set \Seen. Used for older, superseded feeds so we can record
+        # and mark them read without pulling their (large) attachment payload.
+        assert self.connection is not None
+        status, data = self.connection.fetch(message_id, "(BODY.PEEK[HEADER])")
+        if status != "OK" or not data:
+            raise RuntimeError(f"Could not fetch headers for email id {message_id!r}")
+        for item in data:
+            if isinstance(item, tuple):
+                return item[1]
+        raise RuntimeError(f"No header payload returned for email id {message_id!r}")
+
     def mark_as_read(self, message_id: bytes) -> None:
         assert self.connection is not None
         self.connection.store(message_id, "+FLAGS", "\\Seen")

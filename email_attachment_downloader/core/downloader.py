@@ -71,6 +71,49 @@ class EmailAttachmentDownloader:
                 )
 
             for message_id in reversed(message_ids):
+                # Messages are iterated newest-first (reversed search order). Once
+                # the latest keepable feed has been handled, any remaining matches
+                # are older/superseded: fetch only their HEADERS (not the large
+                # attachment body), record + mark them read, and move on. This is
+                # the fast path — the newest feed is the only full download.
+                if self.settings.download_only_latest and downloaded_latest:
+                    try:
+                        header_msg = message_from_bytes(
+                            client.fetch_headers(message_id), policy=default
+                        )
+                    except Exception:
+                        continue
+                    if not message_matches_settings(header_msg, self.settings):
+                        continue
+
+                    matched_emails += 1
+                    skipped_older_emails += 1
+                    stable_id = (header_msg.get("Message-ID") or "").strip() or message_id.decode(errors="ignore")
+                    is_unread = (message_id in unseen_ids) if include_read else True
+                    audit["emails"].append({
+                        "message_id": stable_id,
+                        "subject": header_msg.get("Subject", ""),
+                        "from": header_msg.get("From", ""),
+                        "to": header_msg.get("To", ""),
+                        "date": header_msg.get("Date", ""),
+                        "is_latest": False,
+                        "was_unread": is_unread,
+                        "decision": None,
+                        "skipped_reason": "superseded_by_newer",
+                        "attachments": [],
+                        "body": {"saved_text_path": None, "saved_html_path": None, "scraped_rows": []},
+                    })
+                    if store and not self.dry_run:
+                        store.record_email(
+                            stable_id, header_msg.get("Subject", ""), header_msg.get("From", ""),
+                            header_msg.get("To", ""), header_msg.get("Date", ""),
+                            self.settings.mailbox, is_unread,
+                        )
+                    if not self.dry_run and self.settings.mark_as_read:
+                        client.mark_as_read(message_id)
+                    continue
+
+                # ---- latest not found yet: full fetch to validate + download ----
                 raw = client.fetch_message(message_id)  # PEEK: does not mark read
                 message = message_from_bytes(raw, policy=default)
 
@@ -91,11 +134,6 @@ class EmailAttachmentDownloader:
                 stable_id = (message.get("Message-ID") or "").strip() or message_id.decode(errors="ignore")
                 is_unread = (message_id in unseen_ids) if include_read else True
 
-                # Messages are iterated newest-first (reversed search order), so the
-                # first keepable email is the latest supplier feed; later keepable
-                # ones are superseded duplicates under download_only_latest.
-                is_older_duplicate = self.settings.download_only_latest and downloaded_latest
-
                 matched_emails += 1
                 email_audit: Dict[str, Any] = {
                     "message_id": stable_id,
@@ -103,7 +141,7 @@ class EmailAttachmentDownloader:
                     "from": sender,
                     "to": recipient,
                     "date": email_date,
-                    "is_latest": not is_older_duplicate,
+                    "is_latest": True,
                     "was_unread": is_unread,
                     "decision": None,
                     "skipped_reason": None,
@@ -114,22 +152,6 @@ class EmailAttachmentDownloader:
                 if store and not self.dry_run:
                     store.record_email(stable_id, subject, sender, recipient, email_date,
                                        self.settings.mailbox, is_unread)
-
-                # ---- older duplicate: never download; clear from unread ----
-                if is_older_duplicate:
-                    skipped_older_emails += 1
-                    email_audit["skipped_reason"] = "superseded_by_newer"
-                    for filename, content in attachments:
-                        matched_attachments += 1
-                        email_audit["attachments"].append({
-                            "filename": filename, "size_bytes": len(content),
-                            "downloaded": False, "path": None,
-                            "skipped_reason": "superseded_by_newer",
-                        })
-                    if not self.dry_run and self.settings.mark_as_read:
-                        client.mark_as_read(message_id)
-                    audit["emails"].append(email_audit)
-                    continue
 
                 # ---- latest keepable email: decide by read / processed state ----
                 already_processed = store.is_message_processed(stable_id) if store else False
