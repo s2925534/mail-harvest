@@ -12,6 +12,12 @@ LCS*
 .venv/
 downloads/
 logs/
+
+# Live state database is per-instance and stays local; state/schema.sql (the
+# committed blank starting point) is NOT ignored.
+state/*.db
+state/*.db-journal
+state/*.db-wal
 .idea/*
 .idea
 .idea/misc.xml

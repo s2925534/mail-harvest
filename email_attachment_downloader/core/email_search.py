@@ -6,10 +6,12 @@ from typing import List
 from ..config.settings import EmailDownloadSettings
 
 
-def build_imap_search_criteria(settings: EmailDownloadSettings) -> List[str]:
+def build_imap_search_criteria(settings: EmailDownloadSettings, include_read: bool = False) -> List[str]:
     criteria: List[str] = []
 
-    if settings.only_unread:
+    # include_read forces read + unread (used by the state-aware flow so an
+    # already-read latest email can still be detected and offered for download).
+    if settings.only_unread and not include_read:
         criteria.append("UNSEEN")
     else:
         criteria.append("ALL")

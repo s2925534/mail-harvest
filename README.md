@@ -140,11 +140,46 @@ Audit logs go to `LOG_DIR` and include:
 - scraped body rows
 - counts for matched attachments, downloaded files, saved body files, and scraped rows
 
+## State tracking & download policy
+
+A SQLite state DB (`state/harvest.db`, auto-created from the committed
+`state/schema.sql`, gitignored) records which emails were accessed, which files
+were downloaded, and whether a download was later processed by the downstream
+sync — for visibility of the latest source used.
+
+Only the **latest** matching email is fetched (`DOWNLOAD_ONLY_LATEST=true`).
+Behaviour for that latest email depends on its state:
+
+- **unread** → download automatically.
+- **already read** → confirm before downloading (interactive) / policy `ON_ALREADY_READ` (headless).
+- **already processed** → confirm before reprocessing (interactive) / policy `ON_ALREADY_PROCESSED` (headless).
+
+Interactivity is auto-detected: prompts appear only on a TTY. When run headless
+(e.g. a scheduler/pipeline), the `ON_ALREADY_*` policies apply and prompts never
+block. `--yes` forces confirmation on. Relevant env:
+
+```env
+ENABLE_STATE_DB=true
+DOWNLOAD_ONLY_LATEST=true
+ON_ALREADY_READ=proceed        # proceed | skip  (headless)
+ON_ALREADY_PROCESSED=skip      # proceed | skip  (headless)
+# HARVEST_DB_PATH=state/harvest.db
+```
+
+Commands:
+
+```bash
+python -m email_attachment_downloader              # harvest per the rules above
+python -m email_attachment_downloader --status     # latest accessed email / download / processed
+python -m email_attachment_downloader --mark-processed <path>   # called by the sync after a successful run
+```
+
 ## Suggested use before Shopify sync
 
 1. Run this downloader to fetch the supplier CSV into `downloads/supplier/latest`.
 2. Point your Shopify supplier sync tool to that downloaded CSV directory or file.
-3. Keep the JSON audit log as evidence of which email and attachment produced the supplier feed.
+3. After the sync succeeds, call `--mark-processed <file>` so the state DB records it as processed.
+4. Keep the JSON audit log as evidence of which email and attachment produced the supplier feed.
 #   m a i l - h a r v e s t 
  
  

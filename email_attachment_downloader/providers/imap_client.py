@@ -39,14 +39,18 @@ class ImapClient(AbstractContextManager):
         return data[0].split()
 
     def fetch_message(self, message_id: bytes) -> bytes:
+        # BODY.PEEK[] fetches the full message WITHOUT setting the \Seen flag, so
+        # inspecting a candidate email (to check its attachment / read state)
+        # never marks it read. Read state is set explicitly via mark_as_read only
+        # when we actually act on the email.
         assert self.connection is not None
-        status, data = self.connection.fetch(message_id, "(RFC822)")
+        status, data = self.connection.fetch(message_id, "(BODY.PEEK[])")
         if status != "OK" or not data:
             raise RuntimeError(f"Could not fetch email id {message_id!r}")
         for item in data:
             if isinstance(item, tuple):
                 return item[1]
-        raise RuntimeError(f"No RFC822 payload returned for email id {message_id!r}")
+        raise RuntimeError(f"No message payload returned for email id {message_id!r}")
 
     def mark_as_read(self, message_id: bytes) -> None:
         assert self.connection is not None

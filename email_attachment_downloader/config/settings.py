@@ -3,6 +3,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Optional
 
+from ..store import DEFAULT_DB_PATH
+
 
 def _bool(value: str, default: bool = False) -> bool:
     if value is None or value == "":
@@ -59,6 +61,12 @@ class EmailDownloadSettings:
 
     log_dir: Path
 
+    enable_state_db: bool
+    db_path: Path
+    on_already_read: str
+    on_already_processed: str
+    assume_yes: bool
+
 
 def load_settings() -> EmailDownloadSettings:
     username = os.getenv("EMAIL_USERNAME", "").strip()
@@ -109,4 +117,9 @@ def load_settings() -> EmailDownloadSettings:
         move_processed_email=_bool(os.getenv("MOVE_PROCESSED_EMAIL", "false")),
         processed_mailbox=os.getenv("PROCESSED_MAILBOX", "Processed").strip() or "Processed",
         log_dir=Path(os.getenv("LOG_DIR", "logs")).resolve(),
+        enable_state_db=_bool(os.getenv("ENABLE_STATE_DB", "true"), True),
+        db_path=Path(os.getenv("HARVEST_DB_PATH")).resolve() if os.getenv("HARVEST_DB_PATH") else DEFAULT_DB_PATH,
+        on_already_read=os.getenv("ON_ALREADY_READ", "proceed").strip().lower() or "proceed",
+        on_already_processed=os.getenv("ON_ALREADY_PROCESSED", "skip").strip().lower() or "skip",
+        assume_yes=_bool(os.getenv("AUTO_CONFIRM", "false")),
     )
