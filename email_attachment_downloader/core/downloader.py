@@ -24,6 +24,7 @@ class EmailAttachmentDownloader:
             "provider": self.settings.provider,
             "mailbox": self.settings.mailbox,
             "download_dir": str(self.settings.download_dir),
+            "download_only_latest": self.settings.download_only_latest,
             "emails": [],
         }
 
@@ -32,6 +33,8 @@ class EmailAttachmentDownloader:
         downloaded_files = 0
         saved_body_files = 0
         scraped_body_rows = 0
+        skipped_older_emails = 0
+        downloaded_latest = False
 
         with ImapClient(
             host=self.settings.imap_host,
@@ -58,6 +61,13 @@ class EmailAttachmentDownloader:
                 if not should_keep_email:
                     continue
 
+                # Messages are iterated newest-first (reversed search order), so the
+                # first keepable email is the latest supplier feed. With
+                # download_only_latest, later (older) matches are treated as
+                # superseded: they are not downloaded, only marked read to clear the
+                # backlog, so a stale attachment can never overwrite the latest one.
+                is_older_duplicate = self.settings.download_only_latest and downloaded_latest
+
                 matched_emails += 1
                 email_audit: Dict[str, Any] = {
                     "message_id": message_id.decode(errors="ignore"),
@@ -65,6 +75,8 @@ class EmailAttachmentDownloader:
                     "from": message.get("From", ""),
                     "to": message.get("To", ""),
                     "date": message.get("Date", ""),
+                    "is_latest": not is_older_duplicate,
+                    "skipped_reason": "superseded_by_newer" if is_older_duplicate else None,
                     "attachments": [],
                     "body": {
                         "saved_text_path": None,
@@ -72,6 +84,22 @@ class EmailAttachmentDownloader:
                         "scraped_rows": [],
                     },
                 }
+
+                if is_older_duplicate:
+                    skipped_older_emails += 1
+                    for filename, content in attachments:
+                        matched_attachments += 1
+                        email_audit["attachments"].append({
+                            "filename": filename,
+                            "size_bytes": len(content),
+                            "downloaded": False,
+                            "path": None,
+                            "skipped_reason": "superseded_by_newer",
+                        })
+                    if not self.dry_run and self.settings.mark_as_read:
+                        client.mark_as_read(message_id)
+                    audit["emails"].append(email_audit)
+                    continue
 
                 if not self.dry_run:
                     body_paths = save_email_body(message, message_id, self.settings)
@@ -101,6 +129,8 @@ class EmailAttachmentDownloader:
 
                     email_audit["attachments"].append(attachment_audit)
 
+                downloaded_latest = True
+
                 audit["emails"].append(email_audit)
 
                 if not self.dry_run:
@@ -115,6 +145,7 @@ class EmailAttachmentDownloader:
         audit["downloaded_files"] = downloaded_files
         audit["saved_body_files"] = saved_body_files
         audit["scraped_body_rows"] = scraped_body_rows
+        audit["skipped_older_emails"] = skipped_older_emails
 
         log_file = self._write_audit_log(audit)
         audit["log_file"] = str(log_file)

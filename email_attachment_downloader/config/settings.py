@@ -50,6 +50,7 @@ class EmailDownloadSettings:
 
     download_dir: Path
     overwrite_existing: bool
+    download_only_latest: bool
     add_timestamp_to_filename: bool
 
     mark_as_read: bool
@@ -102,6 +103,7 @@ def load_settings() -> EmailDownloadSettings:
         keep_zip_files=_bool(os.getenv("KEEP_ZIP_FILES", "true"), True),
         download_dir=Path(os.getenv("DOWNLOAD_DIR", "downloads")).resolve(),
         overwrite_existing=_bool(os.getenv("OVERWRITE_EXISTING", "true"), True),
+        download_only_latest=_bool(os.getenv("DOWNLOAD_ONLY_LATEST", "true"), True),
         add_timestamp_to_filename=_bool(os.getenv("ADD_TIMESTAMP_TO_FILENAME", "false")),
         mark_as_read=_bool(os.getenv("MARK_AS_READ", "false")),
         move_processed_email=_bool(os.getenv("MOVE_PROCESSED_EMAIL", "false")),
