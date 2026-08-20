@@ -23,6 +23,7 @@ class EmailDownloadSettings:
     provider: str
     imap_host: str
     imap_port: int
+    imap_timeout: int
     username: str
     password: str
     mailbox: str
@@ -88,6 +89,10 @@ def load_settings() -> EmailDownloadSettings:
         provider=provider,
         imap_host=host,
         imap_port=int(os.getenv("EMAIL_IMAP_PORT", "993")),
+        # Socket timeout (seconds) applied to the IMAP connection AND every
+        # subsequent operation (login/search/fetch). Without it, a stalled fetch
+        # blocks forever and can wedge a scheduled run. 0/blank disables it.
+        imap_timeout=int(os.getenv("EMAIL_IMAP_TIMEOUT", "60") or "0"),
         username=username,
         password=password,
         mailbox=os.getenv("EMAIL_MAILBOX", "INBOX").strip() or "INBOX",

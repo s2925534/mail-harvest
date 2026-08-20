@@ -4,15 +4,21 @@ from typing import List, Tuple
 
 
 class ImapClient(AbstractContextManager):
-    def __init__(self, host: str, port: int, username: str, password: str) -> None:
+    def __init__(self, host: str, port: int, username: str, password: str,
+                 timeout: int | None = 60) -> None:
         self.host = host
         self.port = port
         self.username = username
         self.password = password
+        # A non-positive/None timeout disables it (blocking sockets). Otherwise the
+        # value is a socket timeout in seconds that applies to the connection AND to
+        # every later blocking operation (login/search/fetch), so a stalled fetch
+        # raises socket.timeout instead of hanging the process forever.
+        self.timeout = timeout if (timeout and timeout > 0) else None
         self.connection: imaplib.IMAP4_SSL | None = None
 
     def __enter__(self) -> "ImapClient":
-        self.connection = imaplib.IMAP4_SSL(self.host, self.port)
+        self.connection = imaplib.IMAP4_SSL(self.host, self.port, timeout=self.timeout)
         self.connection.login(self.username, self.password)
         return self
 

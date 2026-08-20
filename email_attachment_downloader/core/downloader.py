@@ -50,6 +50,7 @@ class EmailAttachmentDownloader:
             port=self.settings.imap_port,
             username=self.settings.username,
             password=self.settings.password,
+            timeout=self.settings.imap_timeout,
         ) as client:
             client.select_mailbox(self.settings.mailbox)
 
