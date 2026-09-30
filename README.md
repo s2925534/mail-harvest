@@ -51,6 +51,25 @@ python -m email_attachment_downloader --dry-run
 
 For Gmail, enable IMAP and use an app password if two-factor authentication is enabled. Do not use your normal Gmail password if Google blocks basic password sign-in.
 
+## Gmail web app mode (easiest HTTPS option, no Google Cloud project)
+
+`EMAIL_PROVIDER=gmail_webapp` reads Gmail through a small Google Apps Script web app deployed in the mailbox owner's
+own Google account (`apps_script/MailHarvestWebApp.gs`). No OAuth client, no Cloud console, nothing expires.
+
+1. https://script.google.com -> **New project** -> paste `apps_script/MailHarvestWebApp.gs` (edit `ALLOWED_SENDERS`).
+2. **Deploy -> New deployment -> Web app**; Execute as **Me**; Who has access **Anyone** -> **Deploy** -> **Authorize access**
+   (on "Google hasn't verified this app": Advanced -> Go to ... -> Allow).
+3. Copy the **Web app URL** into `GMAIL_WEBAPP_URL`:
+
+```env
+EMAIL_PROVIDER=gmail_webapp
+GMAIL_WEBAPP_URL=https://script.google.com/macros/s/.../exec
+EMAIL_MAILBOX=ALL
+```
+
+The script is read-only and every search is limited to `ALLOWED_SENDERS`, so the URL can only read those senders' mail.
+Keep the URL private anyway. `MARK_AS_READ` / `MOVE_PROCESSED_EMAIL` are not available in this mode.
+
 ## Gmail API mode (HTTPS, no IMAP)
 
 Use this where IMAP (port 993) cannot connect, for example on cloud runners that only allow HTTPS out.
