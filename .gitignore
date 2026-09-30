@@ -22,3 +22,7 @@ state/*.db-wal
 .idea
 .idea/misc.xml
 idea/misc.xml
+.pytest_cache/
+.gmail_refresh_token
+build/
+*.egg-info/

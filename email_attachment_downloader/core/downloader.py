@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from ..config.settings import EmailDownloadSettings
+from ..providers.gmail_api_client import GmailApiClient
 from ..providers.imap_client import ImapClient
 from ..store import HarvestStore, sha256_bytes
 from .attachments import iter_matching_attachments, save_attachment
@@ -45,13 +46,7 @@ class EmailAttachmentDownloader:
         skipped_by_decision = 0
         downloaded_latest = False
 
-        with ImapClient(
-            host=self.settings.imap_host,
-            port=self.settings.imap_port,
-            username=self.settings.username,
-            password=self.settings.password,
-            timeout=self.settings.imap_timeout,
-        ) as client:
+        with self._mail_client() as client:
             client.select_mailbox(self.settings.mailbox)
 
             # With the state DB on we must be able to see already-read emails too
@@ -220,6 +215,24 @@ class EmailAttachmentDownloader:
         log_file = self._write_audit_log(audit)
         audit["log_file"] = str(log_file)
         return audit
+
+    def _mail_client(self):
+        """IMAP, or the Gmail API over HTTPS (EMAIL_PROVIDER=gmail_api) where
+        IMAP's port 993 cannot connect."""
+        if self.settings.provider == "gmail_api":
+            return GmailApiClient(
+                client_id=self.settings.gmail_client_id,
+                client_secret=self.settings.gmail_client_secret,
+                refresh_token=self.settings.gmail_refresh_token,
+                timeout=self.settings.imap_timeout,
+            )
+        return ImapClient(
+            host=self.settings.imap_host,
+            port=self.settings.imap_port,
+            username=self.settings.username,
+            password=self.settings.password,
+            timeout=self.settings.imap_timeout,
+        )
 
     def _decide(self, is_unread: bool, already_processed: bool) -> Tuple[bool, str]:
         """Return (proceed, decision) for the latest email given its state.

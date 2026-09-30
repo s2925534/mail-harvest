@@ -51,6 +51,40 @@ python -m email_attachment_downloader --dry-run
 
 For Gmail, enable IMAP and use an app password if two-factor authentication is enabled. Do not use your normal Gmail password if Google blocks basic password sign-in.
 
+## Gmail API mode (HTTPS, no IMAP)
+
+Use this where IMAP (port 993) cannot connect, for example on cloud runners that only allow HTTPS out.
+Same filters, state DB and audit logs; only the mailbox connection changes.
+
+```env
+EMAIL_PROVIDER=gmail_api
+GMAIL_CLIENT_ID=...apps.googleusercontent.com
+GMAIL_CLIENT_SECRET=...
+GMAIL_REFRESH_TOKEN=...        # or GMAIL_REFRESH_TOKEN_FILE=path/to/file
+```
+
+One-time setup (Google Cloud Console, signed in as the mailbox owner):
+
+1. Create a project and enable the **Gmail API**.
+2. OAuth consent screen: **Internal** (Google Workspace accounts; no review and the sign-in does not expire).
+   Personal accounts need **External** with themselves as a test user; Google then expires the sign-in after 7 days
+   until the app is published.
+3. Credentials -> Create credentials -> **OAuth client ID** -> **Desktop app**. Copy the client ID and secret.
+4. Sign in once:
+
+```bash
+python -m email_attachment_downloader --gmail-auth-url
+# open the link, approve read-only Gmail access; the browser then goes to http://localhost/?code=... (the page
+# does not load, that is expected) - copy that whole address:
+python -m email_attachment_downloader --gmail-auth-code "http://localhost/?code=..."
+```
+
+The refresh token is written to `.gmail_refresh_token` (mode 600, never printed). Put it in `GMAIL_REFRESH_TOKEN`
+or point `GMAIL_REFRESH_TOKEN_FILE` at the file. The sign-in is read-only (`gmail.readonly`), so `MARK_AS_READ`
+and `MOVE_PROCESSED_EMAIL` are not available in this mode.
+
+Install as a package (for use from another project): `pip install git+https://github.com/s2925534/mail-harvest`.
+
 ## Outlook / Hotmail notes
 
 Use:
