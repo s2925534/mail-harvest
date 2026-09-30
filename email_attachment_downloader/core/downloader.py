@@ -8,6 +8,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from ..config.settings import EmailDownloadSettings
 from ..providers.gmail_api_client import GmailApiClient
+from ..providers.gmail_webapp_client import GmailWebAppClient
 from ..providers.imap_client import ImapClient
 from ..store import HarvestStore, sha256_bytes
 from .attachments import iter_matching_attachments, save_attachment
@@ -219,6 +220,8 @@ class EmailAttachmentDownloader:
     def _mail_client(self):
         """IMAP, or the Gmail API over HTTPS (EMAIL_PROVIDER=gmail_api) where
         IMAP's port 993 cannot connect."""
+        if self.settings.provider == "gmail_webapp":
+            return GmailWebAppClient(self.settings.gmail_webapp_url, timeout=self.settings.imap_timeout)
         if self.settings.provider == "gmail_api":
             return GmailApiClient(
                 client_id=self.settings.gmail_client_id,

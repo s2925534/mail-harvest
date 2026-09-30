@@ -72,6 +72,8 @@ class EmailDownloadSettings:
     gmail_client_id: str = ""
     gmail_client_secret: str = ""
     gmail_refresh_token: str = ""
+    # EMAIL_PROVIDER=gmail_webapp (Apps Script web app URL, see apps_script/).
+    gmail_webapp_url: str = ""
 
 
 def load_settings() -> EmailDownloadSettings:
@@ -81,7 +83,11 @@ def load_settings() -> EmailDownloadSettings:
     gmail_client_id = os.getenv("GMAIL_CLIENT_ID", "").strip()
     gmail_client_secret = os.getenv("GMAIL_CLIENT_SECRET", "").strip()
     gmail_refresh_token = os.getenv("GMAIL_REFRESH_TOKEN", "").strip()
-    if provider == "gmail_api":
+    gmail_webapp_url = os.getenv("GMAIL_WEBAPP_URL", "").strip()
+    if provider == "gmail_webapp":
+        if not gmail_webapp_url:
+            raise ValueError("GMAIL_WEBAPP_URL is required for EMAIL_PROVIDER=gmail_webapp.")
+    elif provider == "gmail_api":
         if not (gmail_client_id and gmail_client_secret and gmail_refresh_token):
             raise ValueError("GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET and GMAIL_REFRESH_TOKEN are required "
                              "for EMAIL_PROVIDER=gmail_api.")
@@ -92,6 +98,8 @@ def load_settings() -> EmailDownloadSettings:
     if not host:
         if provider == "gmail_api":
             host = "gmail.googleapis.com"
+        elif provider == "gmail_webapp":
+            host = "script.google.com"
         elif provider == "gmail":
             host = "imap.gmail.com"
         elif provider in {"outlook", "hotmail"}:
@@ -144,4 +152,5 @@ def load_settings() -> EmailDownloadSettings:
         gmail_client_id=gmail_client_id,
         gmail_client_secret=gmail_client_secret,
         gmail_refresh_token=gmail_refresh_token,
+        gmail_webapp_url=gmail_webapp_url,
     )
