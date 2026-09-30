@@ -68,17 +68,31 @@ class EmailDownloadSettings:
     on_already_processed: str
     assume_yes: bool
 
+    # EMAIL_PROVIDER=gmail_api (Gmail over HTTPS, OAuth) instead of IMAP.
+    gmail_client_id: str = ""
+    gmail_client_secret: str = ""
+    gmail_refresh_token: str = ""
+
 
 def load_settings() -> EmailDownloadSettings:
     username = os.getenv("EMAIL_USERNAME", "").strip()
     password = os.getenv("EMAIL_PASSWORD", "").strip()
-    if not username or not password:
+    provider = os.getenv("EMAIL_PROVIDER", "custom").strip().lower()
+    gmail_client_id = os.getenv("GMAIL_CLIENT_ID", "").strip()
+    gmail_client_secret = os.getenv("GMAIL_CLIENT_SECRET", "").strip()
+    gmail_refresh_token = os.getenv("GMAIL_REFRESH_TOKEN", "").strip()
+    if provider == "gmail_api":
+        if not (gmail_client_id and gmail_client_secret and gmail_refresh_token):
+            raise ValueError("GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET and GMAIL_REFRESH_TOKEN are required "
+                             "for EMAIL_PROVIDER=gmail_api.")
+    elif not username or not password:
         raise ValueError("EMAIL_USERNAME and EMAIL_PASSWORD are required.")
 
-    provider = os.getenv("EMAIL_PROVIDER", "custom").strip().lower()
     host = os.getenv("EMAIL_IMAP_HOST", "").strip()
     if not host:
-        if provider == "gmail":
+        if provider == "gmail_api":
+            host = "gmail.googleapis.com"
+        elif provider == "gmail":
             host = "imap.gmail.com"
         elif provider in {"outlook", "hotmail"}:
             host = "imap-mail.outlook.com"
@@ -127,4 +141,7 @@ def load_settings() -> EmailDownloadSettings:
         on_already_read=os.getenv("ON_ALREADY_READ", "proceed").strip().lower() or "proceed",
         on_already_processed=os.getenv("ON_ALREADY_PROCESSED", "skip").strip().lower() or "skip",
         assume_yes=_bool(os.getenv("AUTO_CONFIRM", "false")),
+        gmail_client_id=gmail_client_id,
+        gmail_client_secret=gmail_client_secret,
+        gmail_refresh_token=gmail_refresh_token,
     )
