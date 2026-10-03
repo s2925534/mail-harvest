@@ -26,3 +26,6 @@ idea/misc.xml
 .gmail_refresh_token
 build/
 *.egg-info/
+
+# Verbatim journal index: machine-local transcript paths, not portable
+/agent-context/journal-verbatim/
